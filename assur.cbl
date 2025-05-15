@@ -65,13 +65,57 @@
        01 WS-EOF                               PIC 9(01).
            88 WS-EOF-TRUE                                VALUE 1.
            88 WS-EOF-FALSE                               VALUE 0.
+
+       01 WS-USER-INPUT                        PIC X(01).
+           88 WS-USER-INPUT-YES                          VALUE "Y".
+           88 WS-USER-INPUT-NO                           VALUE "N".
+
+       01 WS-RCD-NBR                           PIC 9(03).
+
+       01 WS-ASR-OUT-LINE.
+           05 FILLER                           PIC X(16) VALUE 
+                    "Contract code : ".
+           05 WS-ASR-OUT-CONTRACT-CODE         PIC 9(08).
+           05 FILLER                           PIC X(19) VALUE
+                    " | Contract name : ".
+           05 WS-ASR-OUT-CONTRACT-NAME         PIC X(14).
+           05 FILLER                           PIC X(18) VALUE
+                    " | Product name : ".
+           05 WS-ASR-OUT-PRODUCT-NAME          PIC X(14).
+           05 FILLER                           PIC X(17) VALUE 
+                    " | Client name : ".
+           05 WS-ASR-OUT-CLIENT-NAME           PIC X(41).
+           05 FILLER                           PIC X(21) VALUE 
+                    " | Contract status : ".
+           05 WS-ASR-OUT-CONTRACT-STATUS       PIC X(08).
+           05 FILLER                           PIC X(16) VALUE 
+                    " | Start date : ".
+           05 WS-ASR-OUT-START-DATE.
+               10 WS-ASR-OUT-START-DAY         PIC 9(02).
+               10 FILLER                       PIC X(01) VALUE "-".
+               10 WS-ASR-OUT-START-MONTH       PIC 9(02).
+               10 FILLER                       PIC X(01) VALUE "-".
+               10 WS-ASR-OUT-START-YEAR        PIC 9(04).
+           05 FILLER                           PIC X(14) VALUE 
+                    " | End date : ".
+           05 WS-ASR-OUT-END-DATE.
+               10 WS-ASR-OUT-END-DAY           PIC 9(02).
+               10 FILLER                       PIC X(01) VALUE "-".
+               10 WS-ASR-OUT-END-MONTH         PIC 9(02).
+               10 FILLER                       PIC X(01) VALUE "-".
+               10 WS-ASR-OUT-END-YEAR          PIC 9(04).
+           05 FILLER                           PIC X(12) VALUE 
+                    " | Amount : ".
+           05 WS-ASR-OUT-AMOUNT                PIC 9(07)V9(02).
+           05 WS-ASR-OUT-CURRENCY              PIC X(03).
+
        PROCEDURE DIVISION.
            
            PERFORM 0100-READ-FILE-BEGIN
               THRU 0100-READ-FILE-END.
 
-           PERFORM 0200-WRITE-TABLE-BEGIN
-              THRU 0200-WRITE-TABLE-END.
+           PERFORM 0200-WRITE-3-7-BEGIN
+              THRU 0200-WRITE-3-7-END.
 
            STOP RUN.
 
@@ -109,10 +153,46 @@
            MOVE WS-IDX TO WS-TBL-SIZE.
        0100-READ-FILE-END.
 
-       0200-WRITE-TABLE-BEGIN.
-           MOVE 1 TO WS-IDX.
-           PERFORM VARYING WS-IDX FROM 1 BY 1
-                   UNTIL WS-IDX > WS-TBL-SIZE
-               DISPLAY WS-ASR-RCD(WS-IDX)
-           END-PERFORM.
-       0200-WRITE-TABLE-END.
+       0200-WRITE-3-7-BEGIN.
+           DISPLAY "Do you want to print record 3 and 7 (Y/N)?".
+           ACCEPT WS-USER-INPUT.
+           IF WS-USER-INPUT-YES THEN
+               MOVE 3 TO WS-RCD-NBR
+               PERFORM 0300-WRITE-RCD-BEGIN
+                  THRU 0300-WRITE-RCD-END
+               MOVE 7 TO WS-RCD-NBR
+               PERFORM 0300-WRITE-RCD-BEGIN
+                  THRU 0300-WRITE-RCD-END
+           END-IF.
+       0200-WRITE-3-7-END.
+
+       0300-WRITE-RCD-BEGIN.
+           MOVE WS-ASR-CONTRACT-CODE(WS-RCD-NBR) 
+             TO WS-ASR-OUT-CONTRACT-CODE.
+           MOVE WS-ASR-CONTRACT-NAME(WS-RCD-NBR)
+             TO WS-ASR-OUT-CONTRACT-NAME.
+           MOVE WS-ASR-PRODUCT-NAME(WS-RCD-NBR)
+             TO WS-ASR-OUT-PRODUCT-NAME.
+           MOVE WS-ASR-CLIENT-NAME(WS-RCD-NBR)
+             TO WS-ASR-OUT-CLIENT-NAME.
+           MOVE WS-ASR-CONTRACT-STATUS(WS-RCD-NBR)
+             TO WS-ASR-OUT-CONTRACT-STATUS.
+           MOVE WS-ASR-START-DAY(WS-RCD-NBR)
+             TO WS-ASR-OUT-START-DAY.
+           MOVE WS-ASR-START-MONTH(WS-RCD-NBR)
+             TO WS-ASR-OUT-START-MONTH.
+           MOVE WS-ASR-START-YEAR(WS-RCD-NBR)
+             TO WS-ASR-OUT-START-YEAR.
+           MOVE WS-ASR-END-DAY(WS-RCD-NBR)
+             TO WS-ASR-OUT-END-DAY.
+           MOVE WS-ASR-END-MONTH(WS-RCD-NBR)
+             TO WS-ASR-OUT-END-MONTH.
+           MOVE WS-ASR-END-YEAR(WS-RCD-NBR)
+             TO WS-ASR-OUT-END-YEAR.
+           MOVE WS-ASR-AMOUNT(WS-RCD-NBR)
+             TO WS-ASR-OUT-AMOUNT.
+           MOVE WS-ASR-CURRENCY(WS-RCD-NBR)
+             TO WS-ASR-OUT-CURRENCY.
+           DISPLAY WS-ASR-OUT-LINE.
+       0300-WRITE-RCD-END.
+       
