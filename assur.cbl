@@ -17,6 +17,10 @@
            SELECT ASSURANCE-OUTPUT
                ASSIGN TO "rapport-assurances.dat"
                ORGANIZATION IS LINE SEQUENTIAL.
+
+           SELECT ASSURANCE-ONE-OUTPUT
+               ASSIGN TO "rapport-assurances-unique.dat"
+               ORGANIZATION IS LINE SEQUENTIAL.
        
        DATA DIVISION.
        FILE SECTION.
@@ -47,25 +51,12 @@
            05 ASR-IN-CURRENCY              PIC X(03).
 
        FD ASSURANCE-OUTPUT.
-       01 ASR-OUT-RCD.
-           05 ASR-OUT-CONTRACT-CODE        PIC 9(08).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-CONTRACT-NAME        PIC X(14).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-PRODUCT-NAME         PIC X(14).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-CLIENT-NAME          PIC X(41).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-CONTRACT-STATUS      PIC X(08).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-START-DATE           PIC X(10).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-END-DATE             PIC X(10).
-           05 FILLER                       PIC X(01).
-           05 ASR-OUT-AMOUNT               PIC 9(06),9(02).
-           05 ASR-OUT-CURRENCY             PIC X(03).
        01 ASR-OUT-LINE-RCD.
-           05 ASR-OUT-LINE                 PIC X(121).
+           05 ASR-OUT-LINE                 PIC X(124).
+
+       FD ASSURANCE-ONE-OUTPUT.
+       01 ASR-ONE-OUT-LINE-RCD.
+           05 ASR-ONE-OUT-LINE             PIC X(124).
      
        
        WORKING-STORAGE SECTION.
@@ -88,7 +79,6 @@
                10 WS-ASR-CURRENCY              PIC X(03).
 
        77 WS-IDX                               PIC 9(03).
-       77 WS-IDX-2                             PIC 9(03).
        
        77 WS-TBL-SIZE                          PIC 9(03).
 
@@ -103,14 +93,44 @@
            05 FILLER                           PIC X(01) VALUE "-".
            05 WS-OUT-YEAR                      PIC 9(04).
 
+       77 WS-OUT-LINE                          PIC X(124).
+
        77 WS-TOTAL-AMOUNT                      PIC 9(09)V9(02).
-       77 WS-TOTAL-STR  PIC Z(08)9,99.
 
        01 WS-USER-INPUT                        PIC X(01).
            88 WS-USER-INPUT-YES                          VALUE "Y".
            88 WS-USER-INPUT-NO                           VALUE "N".
 
+       01 WS-IDX-USER-INPUT                    PIC 9(03).
+
        77 WS-RCD-NBR                           PIC 9(03).
+
+       01 WS-HEADER-1.
+           05 FILLER                           PIC X(33) VALUE
+                    "This is an insurance report with ".
+           05 WS-HDR-1-RCD-AMT                 PIC 9(01).
+           05 FILLER                           PIC X(21) VALUE
+                    " records, totalizing ".
+           05 WS-HDR-1-RCD-TTL                 PIC Z(08)9,9(02).
+           05 FILLER                           PIC X(03) VALUE "€".
+       
+       01 WS-HEADER-2.
+           05 FILLER                           PIC X(09) VALUE
+                    "Code".
+           05 FILLER                           PIC X(15) VALUE
+                    "Contract name".
+           05 FILLER                           PIC X(15) VALUE
+                    "Product name".
+           05 FILLER                           PIC X(42) VALUE
+                    "Client name".
+           05 FILLER                           PIC X(09) VALUE
+                    "Status".
+           05 FILLER                           PIC X(11) VALUE
+                    "Start".
+           05 FILLER                           PIC X(11) VALUE
+                    "Stop".
+           05 FILLER                           PIC X(12) VALUE
+                    "Amount".
 
        01 WS-ASR-OUT-LINE.
            05 FILLER                           PIC X(16) VALUE 
@@ -149,6 +169,23 @@
            05 WS-ASR-OUT-AMOUNT                PIC 9(07),9(02).
            05 WS-ASR-OUT-CURRENCY              PIC X(03).
 
+       01 WS-ASR-OUT-LINE-FILE.
+           05 WS-ASR-OUT-FILE-CONTRACT-CODE    PIC 9(08).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-CONTRACT-NAME    PIC X(14).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-PRODUCT-NAME     PIC X(14).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-CLIENT-NAME      PIC X(41).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-CTRACT-STATUS    PIC X(08).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-START-DATE       PIC X(10).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-END-DATE         PIC X(10).
+           05 FILLER                           PIC X(01) VALUE SPACE.
+           05 WS-ASR-OUT-FILE-AMOUNT           PIC 9(06),9(02).
+           05 WS-ASR-OUT-FILE-CURRENCY         PIC X(03).
        PROCEDURE DIVISION.
            
            PERFORM 0100-READ-FILE-BEGIN
@@ -159,6 +196,9 @@
 
            PERFORM 0400-WRITE-FILE-BEGIN
               THRU 0400-WRITE-FILE-END.
+
+           PERFORM 0500-WRITE-ONE-RECORD-BEGIN
+              THRU 0500-WRITE-ONE-RECORD-END
 
            STOP RUN.
 
@@ -240,73 +280,84 @@
        0300-WRITE-RCD-END.
        
        0400-WRITE-FILE-BEGIN.
-           DISPLAY             "Do you want the rapport to be written to 
+           DISPLAY              "Do you want the report to be written to 
       -                        " rapport-assurance.dat (Y/N)?"
            ACCEPT WS-USER-INPUT.
            IF WS-USER-INPUT-YES THEN
                OPEN OUTPUT ASSURANCE-OUTPUT
                MOVE 0 TO WS-TOTAL-AMOUNT
-               MOVE 1 TO WS-IDX-2
                
-               MOVE SPACE TO ASR-OUT-LINE
                ADD WS-ASR-AMOUNT(3) TO WS-TOTAL-AMOUNT
                ADD WS-ASR-AMOUNT(7) TO WS-TOTAL-AMOUNT
-               
-               STRING        "This is an insurance report with 2 records
-      -            ",totalizing "
-                   DELIMITED BY SIZE
-                   INTO ASR-OUT-LINE
-                   WITH POINTER WS-IDX-2
-               END-STRING
-               MOVE WS-TOTAL-AMOUNT TO WS-TOTAL-STR
-               STRING WS-TOTAL-STR
-                   DELIMITED BY SIZE
-                   INTO ASR-OUT-LINE
-                   WITH POINTER WS-IDX-2
-               END-STRING
-               STRING "€"
-                   DELIMITED BY SIZE
-                   INTO ASR-OUT-LINE
-                   WITH POINTER WS-IDX-2
-               END-STRING
-               
+               MOVE 2 TO WS-HDR-1-RCD-AMT
+               MOVE WS-TOTAL-AMOUNT TO WS-HDR-1-RCD-TTL
+               MOVE WS-HEADER-1 TO ASR-OUT-LINE-RCD
                WRITE ASR-OUT-LINE-RCD
-               MOVE                                           "Code     
-      -                                                 "Contract name  
-      -                                                 "Product name   
-      -                      "Client name                               
-      -                                                       "Status   
-      -                                                     "Start    
-      -                                                     "Stop     
-      -                                                  "Amount       " 
-                   TO ASR-OUT-LINE-RCD
+               MOVE WS-HEADER-2 TO ASR-OUT-LINE-RCD
                WRITE ASR-OUT-LINE-RCD
                MOVE 3 TO WS-RCD-NBR
-               PERFORM 0500-MOVE-RECORD-TO-LINE-BEGIN
-                  THRU 0500-MOVE-RECORD-TO-LINE-END
+               PERFORM 0600-MOVE-RECORD-TO-LINE-BEGIN
+                  THRU 0600-MOVE-RECORD-TO-LINE-END
+               MOVE WS-ASR-OUT-LINE-FILE TO ASR-OUT-LINE
+               WRITE ASR-OUT-LINE-RCD
 
                MOVE 7 TO WS-RCD-NBR
-               PERFORM 0500-MOVE-RECORD-TO-LINE-BEGIN
-                  THRU 0500-MOVE-RECORD-TO-LINE-END
+               PERFORM 0600-MOVE-RECORD-TO-LINE-BEGIN
+                  THRU 0600-MOVE-RECORD-TO-LINE-END
+               MOVE WS-ASR-OUT-LINE-FILE TO ASR-OUT-LINE
+               WRITE ASR-OUT-LINE-RCD
                CLOSE ASSURANCE-OUTPUT
                DISPLAY "End of processing - 2 records exported"
            ELSE
-               DISPLAY "Ok, the rapport won't be written to the file"
+               DISPLAY "Ok, the report won't be written to the file"
            END-IF.
        0400-WRITE-FILE-END.
 
-       0500-MOVE-RECORD-TO-LINE-BEGIN.
-           INITIALIZE ASR-OUT-LINE-RCD.
+       0500-WRITE-ONE-RECORD-BEGIN.
+           DISPLAY         "Do you want an extra chosen record to go to  
+      -                   "rapport-assurances-unique.dat (Y/N)?".
+           ACCEPT WS-USER-INPUT.
+           IF WS-USER-INPUT-YES THEN
+               DISPLAY "Choose the record index : " WITH NO ADVANCING
+               ACCEPT WS-IDX-USER-INPUT
+               IF WS-IDX-USER-INPUT NOT EQUAL ZERO AND
+                  WS-IDX-USER-INPUT <= WS-TBL-SIZE THEN
+                   OPEN OUTPUT ASSURANCE-ONE-OUTPUT
+                   MOVE 1 TO WS-HDR-1-RCD-AMT
+                   MOVE WS-ASR-AMOUNT(WS-IDX-USER-INPUT)
+                       TO WS-HDR-1-RCD-TTL
+                   MOVE WS-HEADER-1 TO ASR-ONE-OUT-LINE
+                   WRITE ASR-ONE-OUT-LINE-RCD
+                   MOVE WS-HEADER-2 TO ASR-ONE-OUT-LINE
+                   WRITE ASR-ONE-OUT-LINE-RCD
+
+                   MOVE WS-IDX-USER-INPUT TO WS-RCD-NBR
+                   PERFORM 0600-MOVE-RECORD-TO-LINE-BEGIN
+                      THRU 0600-MOVE-RECORD-TO-LINE-END
+                   MOVE WS-ASR-OUT-LINE-FILE TO ASR-ONE-OUT-LINE
+                   WRITE ASR-ONE-OUT-LINE-RCD
+
+                   CLOSE ASSURANCE-ONE-OUTPUT
+                   DISPLAY "End of processing - 1 record exported"
+               ELSE
+                   DISPLAY "This is not a valid index, closing program."
+               END-IF
+           ELSE
+               DISPLAY "Ok, no extra report done"
+           END-IF.
+       0500-WRITE-ONE-RECORD-END.
+
+       0600-MOVE-RECORD-TO-LINE-BEGIN.
            MOVE WS-ASR-CONTRACT-CODE(WS-RCD-NBR)
-               TO ASR-OUT-CONTRACT-CODE
+               TO WS-ASR-OUT-FILE-CONTRACT-CODE.
            MOVE WS-ASR-CONTRACT-NAME(WS-RCD-NBR)
-               TO ASR-OUT-CONTRACT-NAME
+               TO WS-ASR-OUT-FILE-CONTRACT-NAME.
            MOVE WS-ASR-PRODUCT-NAME(WS-RCD-NBR)
-               TO ASR-OUT-PRODUCT-NAME
+               TO WS-ASR-OUT-FILE-PRODUCT-NAME.
            MOVE WS-ASR-CLIENT-NAME(WS-RCD-NBR)
-               TO ASR-OUT-CLIENT-NAME
+               TO WS-ASR-OUT-FILE-CLIENT-NAME.
            MOVE WS-ASR-CONTRACT-STATUS(WS-RCD-NBR) 
-               TO ASR-OUT-CONTRACT-STATUS
+               TO WS-ASR-OUT-FILE-CTRACT-STATUS.
            MOVE WS-ASR-START-DAY(WS-RCD-NBR) 
                TO WS-OUT-DAY.
            MOVE WS-ASR-START-MONTH(WS-RCD-NBR) 
@@ -314,7 +365,7 @@
            MOVE WS-ASR-START-YEAR(WS-RCD-NBR) 
                TO WS-OUT-YEAR.
            MOVE WS-DATE-OUTPUT 
-               TO ASR-OUT-START-DATE.
+               TO WS-ASR-OUT-FILE-START-DATE.
            MOVE WS-ASR-END-DAY(WS-RCD-NBR) 
                TO WS-OUT-DAY.
            MOVE WS-ASR-END-MONTH(WS-RCD-NBR) 
@@ -322,10 +373,9 @@
            MOVE WS-ASR-END-YEAR(WS-RCD-NBR) 
                TO WS-OUT-YEAR.
            MOVE WS-DATE-OUTPUT 
-               TO ASR-OUT-END-DATE.
+               TO WS-ASR-OUT-FILE-END-DATE.
            MOVE WS-ASR-AMOUNT(WS-RCD-NBR) 
-               TO ASR-OUT-AMOUNT.
+               TO WS-ASR-OUT-FILE-AMOUNT.
            MOVE WS-ASR-CURRENCY(WS-RCD-NBR) 
-               TO ASR-OUT-CURRENCY.
-           WRITE ASR-OUT-RCD.
-       0500-MOVE-RECORD-TO-LINE-END.
+               TO WS-ASR-OUT-FILE-CURRENCY.
+       0600-MOVE-RECORD-TO-LINE-END.
