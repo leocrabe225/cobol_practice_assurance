@@ -146,7 +146,7 @@
                10 WS-ASR-OUT-END-YEAR          PIC 9(04).
            05 FILLER                           PIC X(12) VALUE 
                     " | Amount : ".
-           05 WS-ASR-OUT-AMOUNT                PIC 9(07)V9(02).
+           05 WS-ASR-OUT-AMOUNT                PIC 9(07),9(02).
            05 WS-ASR-OUT-CURRENCY              PIC X(03).
 
        PROCEDURE DIVISION.
@@ -289,6 +289,7 @@
                PERFORM 0500-MOVE-RECORD-TO-LINE-BEGIN
                   THRU 0500-MOVE-RECORD-TO-LINE-END
                CLOSE ASSURANCE-OUTPUT
+               DISPLAY "End of processing - 2 records exported"
            ELSE
                DISPLAY "Ok, the rapport won't be written to the file"
            END-IF.
