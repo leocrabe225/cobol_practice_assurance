@@ -1,3 +1,6 @@
+      * This program will read insurance data from a csv file and 
+      * process them before extracting the resulting data in a specific
+      * format to specific files.
        IDENTIFICATION DIVISION.
        PROGRAM-ID. assur.
        AUTHOR. BernadetteC&Leocrabe225.
@@ -5,10 +8,15 @@
        DATE-COMPILED. null.
 
        ENVIRONMENT DIVISION.
+      * The configuration section here is used for the DECIMAL-POINT
+      * IS COMMA, which tells the program to read commas for decimal
+      * point instead of dots.
        CONFIGURATION SECTION.
        SPECIAL-NAMES.
            DECIMAL-POINT IS COMMA.
        INPUT-OUTPUT SECTION.
+      * 3 aliases are created here, one for the input, and two for the
+      * outputs, as two parts of the exercises needed a separate output.
        FILE-CONTROL.
            SELECT ASSURANCE-INPUT
                ASSIGN TO "assurances.csv"
@@ -24,6 +32,9 @@
        
        DATA DIVISION.
        FILE SECTION.
+      * Here the description of the input FD, it gets everything from
+      * the csv, code, name, product name, client name, contract status
+      * start date, end date, amount and currency.
        FD ASSURANCE-INPUT.
        01 ASR-IN-RCD.
            05 ASR-IN-CONTRACT-CODE         PIC 9(08).
@@ -50,6 +61,10 @@
            05 FILLER                       PIC X(01).
            05 ASR-IN-CURRENCY              PIC X(03).
 
+      * Here after a lot of testing I tend to think that outputs are
+      * better off handled as WS variable groups, because they handle
+      * fillers much better (at all), so here I just track the size of
+      * the output lines.
        FD ASSURANCE-OUTPUT.
        01 ASR-OUT-LINE-RCD.
            05 ASR-OUT-LINE                 PIC X(124).
@@ -60,6 +75,9 @@
      
        
        WORKING-STORAGE SECTION.
+      * The big storage table, occurs 100 times to be safe, stores
+      * everything that is read from the csv, in appropriate format,
+      * note the currency taking 3 bytes btw.
        01 WS-ASR-TBL.
            05 WS-ASR-RCD OCCURS 100 TIMES.
                10 WS-ASR-CONTRACT-CODE         PIC 9(08).
@@ -78,14 +96,18 @@
                10 WS-ASR-AMOUNT                PIC 9(06)V9(02).
                10 WS-ASR-CURRENCY              PIC X(03).
 
+      * Simple table index.
        77 WS-IDX                               PIC 9(03).
        
+      * Stores the actual table size after the csv input.
        77 WS-TBL-SIZE                          PIC 9(03).
 
+      * Tracks the status of the read.
        01 WS-EOF                               PIC 9(01).
            88 WS-EOF-TRUE                                VALUE 1.
            88 WS-EOF-FALSE                               VALUE 0.
 
+      * Simple date output group.
        01 WS-DATE-OUTPUT.
            05 WS-OUT-DAY                       PIC 9(02).
            05 FILLER                           PIC X(01) VALUE "-".
@@ -93,18 +115,25 @@
            05 FILLER                           PIC X(01) VALUE "-".
            05 WS-OUT-YEAR                      PIC 9(04).
 
+      * Output line variable used for modularity, allows paragraphs to
+      * not know the actual file output so they are reusable.
        77 WS-OUT-LINE                          PIC X(124).
 
+      * Sum of all the records amounts output.
        77 WS-TOTAL-AMOUNT                      PIC 9(09)V9(02).
 
+      * Simple flags for easy user input system.
        01 WS-USER-INPUT                        PIC X(01).
            88 WS-USER-INPUT-YES                          VALUE "Y".
            88 WS-USER-INPUT-NO                           VALUE "N".
 
+      * User input index.
        01 WS-IDX-USER-INPUT                    PIC 9(03).
 
+      * Paragraph argument to decide target record.
        77 WS-RCD-NBR                           PIC 9(03).
 
+      * Output group designed to represent the first part of the header.
        01 WS-HEADER-1.
            05 FILLER                           PIC X(33) VALUE
                     "This is an insurance report with ".
@@ -114,6 +143,8 @@
            05 WS-HDR-1-RCD-TTL                 PIC Z(08)9,9(02).
            05 FILLER                           PIC X(03) VALUE "€".
        
+      * Output group designed to represent the second part
+      * of the header.
        01 WS-HEADER-2.
            05 FILLER                           PIC X(09) VALUE
                     "Code".
@@ -132,6 +163,7 @@
            05 FILLER                           PIC X(12) VALUE
                     "Amount".
 
+      * Output group designed to output a record to stdout.
        01 WS-ASR-OUT-LINE.
            05 FILLER                           PIC X(16) VALUE 
                     "Contract code : ".
@@ -169,6 +201,7 @@
            05 WS-ASR-OUT-AMOUNT                PIC 9(07),9(02).
            05 WS-ASR-OUT-CURRENCY              PIC X(03).
 
+      * Output group designed to output a record to a file.
        01 WS-ASR-OUT-LINE-FILE.
            05 WS-ASR-OUT-FILE-CONTRACT-CODE    PIC 9(08).
            05 FILLER                           PIC X(01) VALUE SPACE.
@@ -187,7 +220,8 @@
            05 WS-ASR-OUT-FILE-AMOUNT           PIC 9(06),9(02).
            05 WS-ASR-OUT-FILE-CURRENCY         PIC X(03).
        PROCEDURE DIVISION.
-           
+
+      * Clean PROCEDURE DIVISION with only paragraphs calls.
            PERFORM 0100-READ-FILE-BEGIN
               THRU 0100-READ-FILE-END.
 
@@ -202,6 +236,8 @@
 
            STOP RUN.
 
+      * READ-FILE will read all the records in the csv and store them
+      * in the table. It will also fill WS-TBL-SIZE.
        0100-READ-FILE-BEGIN.
            MOVE 0 TO WS-IDX.
            SET WS-EOF-FALSE TO TRUE.
@@ -236,10 +272,14 @@
            MOVE WS-IDX TO WS-TBL-SIZE.
        0100-READ-FILE-END.
 
+      * WRITE-3-7 asks the user if it wants the 3rd and 7th record to
+      * be written in stdout, and does so if he does.
        0200-WRITE-3-7-BEGIN.
            DISPLAY "Do you want to print record 3 and 7 (Y/N)?".
            ACCEPT WS-USER-INPUT.
            IF WS-USER-INPUT-YES THEN
+      * Note that we move the wished record to WS-RCD-NBR before
+      * the PERFORM.
                MOVE 3 TO WS-RCD-NBR
                PERFORM 0300-WRITE-RCD-BEGIN
                   THRU 0300-WRITE-RCD-END
@@ -249,6 +289,8 @@
            END-IF.
        0200-WRITE-3-7-END.
 
+      * WRITE-RCD moves the record at INDEX WS-RCD-NBR to the stdout
+      * output group, and then displays it.
        0300-WRITE-RCD-BEGIN.
            MOVE WS-ASR-CONTRACT-CODE(WS-RCD-NBR) 
              TO WS-ASR-OUT-CONTRACT-CODE.
@@ -279,6 +321,8 @@
            DISPLAY WS-ASR-OUT-LINE.
        0300-WRITE-RCD-END.
        
+      * Asks the user whether he want the previous records to be written
+      * to a file, and does so if he does.
        0400-WRITE-FILE-BEGIN.
            DISPLAY              "Do you want the report to be written to 
       -                        " rapport-assurance.dat (Y/N)?"
@@ -313,6 +357,9 @@
            END-IF.
        0400-WRITE-FILE-END.
 
+      * Asks the user whether he want a specific record to be written
+      * to a file, and does so if he does, lets him choose the record
+      * and stops if it does not exist.
        0500-WRITE-ONE-RECORD-BEGIN.
            DISPLAY         "Do you want an extra chosen record to go to  
       -                   "rapport-assurances-unique.dat (Y/N)?".
@@ -347,6 +394,7 @@
            END-IF.
        0500-WRITE-ONE-RECORD-END.
 
+      * Moves a record to the output line for file printing.
        0600-MOVE-RECORD-TO-LINE-BEGIN.
            MOVE WS-ASR-CONTRACT-CODE(WS-RCD-NBR)
                TO WS-ASR-OUT-FILE-CONTRACT-CODE.
